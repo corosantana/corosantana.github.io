@@ -1,4 +1,4 @@
-﻿<!doctype html>
+<!doctype html>
 <html lang="pt-BR">
 <head>
 <meta charset="utf-8">
@@ -682,9 +682,63 @@ $("#contato").innerHTML = DATA.contato.map(linkCard).join("");
     $("#mtcantos").innerHTML = PARTES.map(([p, lab]) => { const cs = candidatos(x, p); if (M[p] === undefined && cs[0]) M[p] = cs[0].n;
       const extra = M[p] && !cs.some(k => k.n === M[p]) ? [{n: M[p]}] : [];
       return `<div class="mt-p"><div class="part">${lab}</div><div class="ops">${[...extra, ...cs].filter(k => R.cantos[k.n]).map(k => `<button class="op" type="button" data-op="${p}" data-no="${k.n}" aria-pressed="${k.n === M[p]}">${esc(curto(R.cantos[k.n].t, 52))}${k.aqui ? `<small>já cantado aqui</small>` : ""}</button>`).join("")}</div><input class="outro" list="mtlista" data-outro="${p}" placeholder="Outro canto…" aria-label="Outro canto para ${lab}" autocomplete="off"></div>`; }).join("");
-    $("#mtfixas").innerHTML = FIXAS.filter(p => Sg[p]).map(p => { const l = PF[p].filter(i => i.tempos.includes(tp)); if (!M["f_" + p]) M["f_" + p] = Sg[p].url;
-      return `<div class="mt-p"><div class="part">${esc(PFN[p])}</div><select data-fx="${p}" aria-label="${esc(PFN[p])}">${l.map(i => `<option value="${esc(i.url)}" ${i.url === M["f_" + p] ? "selected" : ""}>${esc(i.nome)}${i.autor ? " · " + esc(i.autor) : ""}</option>`).join("")}</select></div>`; }).join("");
+    $("#mtfixas").innerHTML = FIXAS.filter(p => Sg[p]).map(p => { const l = PF[p].filter(i => i.tempos.includes(tp)); if (M["f_" + p] === undefined) M["f_" + p] = Sg[p].url;
+      return `<div class="mt-p"><div class="part">${esc(PFN[p])}</div><select data-fx="${p}" aria-label="${esc(PFN[p])}"><option value="">Não usar</option>${l.map(i => `<option value="${esc(i.url)}" ${i.url === M["f_" + p] ? "selected" : ""}>${esc(i.nome)}${i.autor ? " · " + esc(i.autor) : ""}</option>`).join("")}</select></div>`; }).join("");
     grava(M); folheto();
+  }
+  // ---- gerar slides: no aparelho de quem clica, no molde dos slides do coro ----
+  const LIB = "js/pptxgen.bundle.js";
+  const carregaLib = () => window.PptxGenJS ? Promise.resolve() : new Promise((ok, erro) => { const s = document.createElement("script"); s.src = LIB; s.onload = ok; s.onerror = erro; document.head.appendChild(s); });
+  const json = async u => { const r = await fetch(u + "?v=" + DATA.gerado); if (!r.ok) throw new Error(u); return r.json(); };
+  const LARG = 11.85, ALT = 5.95;
+  function tamanho(ls, max){  // maior fonte em que o texto cabe no slide
+    for (let s = max; s > 24; s -= 2) { const porLinha = Math.floor(LARG * 72 / (s * .56));
+      if (ls.reduce((n, [t]) => n + Math.max(1, Math.ceil(t.length / porLinha)), 0) * s * 1.2 / 72 <= ALT) return s; }
+    return 24;
+  }
+  const limpa = t => t.replace(/\/:|:\//g, "").replace(/\s*\bR\.$/i, "").replace(/\s+/g, " ").trim().toUpperCase();
+  function slidesDoCanto(no, LET){
+    const est = LET[no] || [], iR = est.findIndex(e => e[0] === "R"), vs = est.filter((e, i) => i !== iR);
+    const num = vs.length > 1 && iR >= 0 || vs.length > 1;
+    const vz = vs.map((e, i) => e[1].map((t, j) => [(num && !j ? `${i + 1}. ` : "") + limpa(t), e[0] === "R" ? 1 : 0]));
+    if (iR < 0) return vz;
+    const r = est[iR][1].map(t => [limpa(t), 1]); if (!vz.length) return [r];
+    const juntos = vz.map(v => [...r, ["", 0], ...v]);  // refrão e estrofe no mesmo slide, como nos slides do coro
+    return juntos.every(z => tamanho(z, 60) >= 40) ? juntos : vz.flatMap(v => [r, v]);
+  }
+  async function geraSlides(bt){
+    const txt = bt.textContent, aviso = $("#mtaviso"); bt.disabled = true; bt.textContent = "Gerando…"; aviso.textContent = "";
+    try {
+      await carregaLib();
+      const [LET, TX] = await Promise.all([json("letras.json"), json("slides_textos.json")]);
+      const M = ler(), prop = TX.proprios[nome + "|" + (M.ano || "-")] || {}, x = CELS.find(i => i.c.nome === nome), d = x.c.anos[M.ano], falta = [];
+      const p = new PptxGenJS(); p.layout = "LAYOUT_WIDE"; p.title = nome; p.company = "Coro Sant'Ana e São Joaquim";
+      const capa = p.addSlide(); capa.background = {color: "1B1B1B"};
+      if (TX.capas[nome]) { const b = await (await fetch(TX.capas[nome])).blob(), url = await new Promise(ok => { const f = new FileReader(); f.onload = () => ok(f.result); f.readAsDataURL(b); });
+        capa.addImage({data: url, x: 0, y: 0, w: 13.33, h: 7.5}); capa.addShape(p.ShapeType.rect, {x: 0, y: 0, w: 13.33, h: 7.5, fill: {color: "000000", transparency: 55}, line: {type: "none"}}); }
+      capa.addText(nome.toUpperCase(), {x: 1.2, y: 3.6, w: 10.93, h: 3.4, fontFace: "Times New Roman", fontSize: nome.length > 34 ? 60 : 80, bold: true, color: "FFFFFF", align: "center", valign: "middle", margin: 0});
+      let n = 0;
+      const secao = (lab, slides, unico) => { if (!slides.length) return;
+        const fonte = unico ? Math.min(...slides.map(z => tamanho(z, 66))) : 0;
+        if (n++) { const b = p.addSlide(); b.background = {color: "000000"}; }
+        for (const ls of slides) { const s = p.addSlide(); s.background = {color: "FFFFFF"};
+          s.addText(lab, {x: .74, y: .42, w: 11.85, h: .52, fontFace: "Calibri", fontSize: 28, bold: true, color: "FF0000", margin: 0});
+          s.addText(ls.map(([t, b], i) => ({text: t || " ", options: {bold: !!b, breakLine: i < ls.length - 1}})), {x: .74, y: 1.1, w: LARG, h: ALT, fontFace: "Calibri", fontSize: fonte || tamanho(ls, 66), color: "000000", valign: "top", align: "left", margin: 0}); } };
+      const canto = (pt, lab) => secao(lab, M[pt] ? slidesDoCanto(M[pt], LET) : [], true);
+      const pendente = (lab, t) => { falta.push(lab); return [[[`(COLAR O TEXTO: ${t})`.toUpperCase(), 0]]]; };
+      const fixa = (pt, lab, txts) => { const u = M["f_" + pt]; if (!u) return; const i = (PF[pt] || []).find(k => k.url === u); secao(lab, txts(u) || pendente(lab, i ? i.nome : lab)); };
+      canto("entrada", "ENTRADA");
+      fixa("ato_penitencial", "ATO PENITENCIAL", u => TX.ato[u]);
+      fixa("gloria", "HINO DE LOUVOR", () => TX.gloria);
+      secao("SALMO RESPONSORIAL", prop.salmo || (d && d.salmo ? [[[d.salmo.toUpperCase(), 1]]] : pendente("Salmo", "salmo do dia")));
+      secao("ACLAMAÇÃO", prop.aclamacao || pendente("Aclamação", "versículo da aclamação"));
+      canto("ofertorio", "APRESENTAÇÃO DAS OFERENDAS");
+      fixa("santo", "SANTO", () => TX.santo);
+      canto("comunhao", "COMUNHÃO"); canto("pos_comunhao", "PÓS-COMUNHÃO"); canto("final", "FINAL");
+      await p.writeFile({fileName: `${nome}${M.ano ? " - Ano " + M.ano : ""}.pptx`});
+      aviso.textContent = falta.length ? `Slide gerado. Falta colar o texto em: ${falta.join(", ")}.` : "Slide gerado. Confira antes de projetar.";
+    } catch (e) { aviso.textContent = "Não foi possível gerar agora. Verifique a internet e tente de novo."; }
+    bt.disabled = false; bt.textContent = txt;
   }
   function folheto(){
     const x = CELS.find(i => i.c.nome === nome), M = ler(), d = x.c.anos[M.ano], lin = [];
@@ -697,12 +751,13 @@ $("#contato").innerHTML = DATA.contato.map(linkCard).join("");
     fixa("aleluia"); canto("ofertorio", "Oferendas"); fixa("santo"); fixa("amem"); fixa("cordeiro");
     canto("comunhao", "Comunhão"); canto("pos_comunhao", "Pós-comunhão"); canto("final", "Final");
     txt.push("", `Repertório e letras: ${DATA.site}`);
-    $("#mtfolha").innerHTML = `<h3>${esc(nome)}</h3><p class="meta">${M.ano ? `Ano ${M.ano} · ` : ""}Coro Sant'Ana e São Joaquim</p>${lin.join("")}<div class="mt-acoes">${copyBtn(txt.join("\n"))}<button class="btn" type="button" data-imprime>Imprimir</button></div>`;
+    $("#mtfolha").innerHTML = `<h3>${esc(nome)}</h3><p class="meta">${M.ano ? `Ano ${M.ano} · ` : ""}Coro Sant'Ana e São Joaquim</p>${lin.join("")}<div class="mt-acoes">${copyBtn(txt.join("\n"))}<button class="btn primary" type="button" data-gera>Gerar slides</button><button class="btn" type="button" data-imprime>Imprimir</button></div><p class="meta" id="mtaviso"></p>`;
   }
   $("#mtcel").innerHTML = R.tempos.map(t => `<optgroup label="${esc(t.nome)}">${t.celebracoes.map(c => `<option ${c.nome === nome ? "selected" : ""}>${esc(c.nome)}</option>`).join("")}</optgroup>`).join("");
   $("#mtlista").innerHTML = Object.entries(R.cantos).map(([no, s]) => `<option value="${no} · ${esc(curto(s.t, 60))}">`).join("");
   $("#montar").addEventListener("click", e => {
     if (e.target.closest("[data-imprime]")) { print(); return; }
+    const g = e.target.closest("[data-gera]"); if (g) { geraSlides(g); return; }
     const b = e.target.closest("[data-op]"); if (!b) return;
     const M = ler(); M[b.dataset.op] = +b.dataset.no; grava(M);
     document.querySelectorAll(`[data-op="${b.dataset.op}"]`).forEach(o => o.setAttribute("aria-pressed", o === b)); folheto();
