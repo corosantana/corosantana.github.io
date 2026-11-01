@@ -102,6 +102,31 @@ h3{font-weight:600;color:var(--ink);font-size:16.5px;margin:0;letter-spacing:-.0
 .sl-ok,.sl-par{display:inline-block;font:600 10.5px Lexend,sans-serif;border-radius:999px;padding:1px 7px;margin-left:4px;white-space:nowrap}
 .sl-ok{color:#1f8a4c;background:#e6f4ec}
 .sl-par{color:#9a6a12;background:#fbf1dc}
+.mt-grade{display:grid;grid-template-columns:minmax(0,1fr) 370px;gap:26px;align-items:start;margin-top:14px}
+.mt-sel{display:flex;gap:8px}
+#montar select{font:inherit;color:var(--ink);background:var(--card);border:1px solid var(--rule);border-radius:10px;padding:9px 10px;max-width:100%}
+#mtcel{flex:1;min-width:0}
+.mt-p{margin-top:16px}
+.mt-p select{width:100%}
+.ops{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.op{border:1px solid var(--rule);background:var(--card);color:var(--ink);border-radius:10px;padding:6px 11px;font:inherit;font-size:13.5px;text-align:left;cursor:pointer;line-height:1.3;max-width:100%}
+.op small{color:var(--muted);font-size:11.5px;margin-left:5px}
+.op:hover{border-color:var(--acc)}
+.op[aria-pressed=true]{background:var(--acc);border-color:var(--acc);color:#fff}
+.op[aria-pressed=true] small{color:#ffe6d8}
+.outro{width:100%;margin-top:6px;border:0;border-bottom:1px dashed var(--rule);background:none;color:var(--ink);font:inherit;font-size:13.5px;padding:4px 0;outline:0}
+.outro:focus{border-bottom-color:var(--acc)}
+.mt-fx{margin-top:18px}
+.mt-fx #mtfixas{padding:0 14px 14px}
+.folheto{position:sticky;top:76px;background:var(--card);border:1px solid var(--rule);border-radius:16px;padding:18px;box-shadow:var(--shadow)}
+.folheto h3{margin:0}
+.folheto .meta{margin:2px 0 8px}
+.folheto .lin{padding:6px 0;border-top:1px solid var(--rule);font-size:14px;line-height:1.35}
+.folheto .lin .part{display:block;margin:0}
+.mt-acoes{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:12px}
+.mt-acoes .btn{flex:0 0 auto}
+@media (max-width:860px){.mt-grade{grid-template-columns:minmax(0,1fr)}.folheto{position:static}}
+@media print{header,footer,.mt-esq,#montar>h2,#montar>p,.mt-acoes{display:none!important}.mt-grade{display:block}.folheto{position:static;border:0;box-shadow:none}body{background:#fff}}
 .hero{position:relative;border-radius:22px;overflow:hidden;min-height:clamp(360px,52vw,480px);display:flex;align-items:flex-end;color:#fff;background:#1a1a1a;box-shadow:var(--shadow)}
 .hero::before{content:"";position:absolute;inset:0;z-index:1;background:linear-gradient(180deg,rgba(0,0,0,.05) 20%,rgba(0,0,0,.55) 55%,rgba(0,0,0,.88))}
 .hero-in{position:relative;z-index:2;padding:clamp(20px,4vw,40px);max-width:680px}
@@ -214,7 +239,7 @@ footer{text-align:center;color:var(--muted);font-size:12.5px;padding:24px 16px 4
     <a class="brand" href="#inicio"><img src="img/logo.jpg" alt="">
       <span>Coro Sant'Ana e São Joaquim<small>Paróquia de Sant'Ana e São Joaquim · Bacabal-MA</small></span></a>
     <nav id="nav">
-      <a href="#inicio">Início</a><a href="#repertorio">Repertório</a><a href="#slides">Slides</a><a href="#formacao">Formação</a><a href="#contato-sec">Contato</a>
+      <a href="#inicio">Início</a><a href="#repertorio">Repertório</a><a href="#slides">Slides</a><a href="#montar">Montar</a><a href="#formacao">Formação</a><a href="#contato-sec">Contato</a>
     </nav>
   </div>
 </header>
@@ -299,6 +324,21 @@ footer{text-align:center;color:var(--muted);font-size:12.5px;padding:24px 16px 4
     </div>
     <div id="list"></div>
     <p class="empty" id="empty">Nada encontrado.</p>
+  </section>
+
+  <section id="montar">
+    <h2 style="margin-top:6px">Montar repertório</h2>
+    <p class="meta">Escolha a celebração e toque nos cantos. As opções vêm do que o coro já cantou nela e naquele tempo litúrgico. Sua escolha fica guardada neste aparelho.</p>
+    <div class="mt-grade">
+      <div class="mt-esq">
+        <div class="mt-sel"><select id="mtcel" aria-label="Celebração"></select><select id="mtano" aria-label="Ano litúrgico"></select></div>
+        <div id="mtcantos"></div>
+        <details class="pf mt-fx"><summary>Partes fixas</summary><div id="mtfixas"></div></details>
+        <datalist id="mtlista"></datalist>
+        <button class="rep-link" type="button" id="mtlimpa">Recomeçar esta celebração</button>
+      </div>
+      <div class="folheto" id="mtfolha"></div>
+    </div>
   </section>
 
   <section id="formacao">
@@ -614,6 +654,70 @@ $("#lform").innerHTML = DATA.links_form.map(linkCard).join("");
 
 $("#contato").innerHTML = DATA.contato.map(linkCard).join("");
 
+// ---------- montar repertório ----------
+(function(){
+  const PARTES = [["entrada", "Entrada"], ["ofertorio", "Oferendas"], ["comunhao", "Comunhão"], ["pos_comunhao", "Pós-comunhão"], ["final", "Final"]];
+  const FIXAS = ["ato_penitencial", "gloria", "aleluia", "santo", "amem", "cordeiro"];
+  const CELS = R.tempos.flatMap(t => t.celebracoes.map(c => ({c, t})));
+  const curto = (t, n) => t.length > n ? t.slice(0, n - 2).replace(/\s+\S*$/, "") + "…" : t;
+  const hoje = new Date(); const iso = new Date(hoje.getTime() - hoje.getTimezoneOffset() * 6e4).toISOString().slice(0, 10);
+  const nx = (DATA.agenda || []).find(a => a.d >= iso);
+  const inicial = CELS.find(x => nx && x.c.nome === nx.k) || CELS[0];
+  let nome = inicial.c.nome;
+  const ler = () => store.get("montar-" + nome) || {}, grava = M => store.set("montar-" + nome, M);
+  const anosDe = c => Object.keys(c.anos).filter(y => y !== "-").sort();
+  // primeiro o que o coro já cantou nesta celebração, depois o mais usado no mesmo tempo
+  function candidatos({c, t}, p){
+    const daqui = new Set(), conta = {};
+    Object.values(c.anos).forEach(d => (d.partes[p] || []).forEach(n => daqui.add(n)));
+    t.celebracoes.forEach(o => Object.values(o.anos).forEach(d => (d.partes[p] || []).forEach(n => { conta[n] = (conta[n] || 0) + 1; })));
+    const outros = Object.keys(conta).map(Number).filter(n => !daqui.has(n)).sort((a, b) => conta[b] - conta[a]).slice(0, 7);
+    return [...[...daqui].map(n => ({n, aqui: true})), ...outros.map(n => ({n}))];
+  }
+  function desenha(){
+    const x = CELS.find(i => i.c.nome === nome), M = ler(), Sg = sugestoes(nome), {tp} = tempoDe(nome), ys = anosDe(x.c);
+    if (M.ano === undefined) M.ano = nx && nx.k === nome && x.c.anos[nx.y] ? nx.y : ys[ys.length - 1] || "";
+    $("#mtano").innerHTML = ys.map(y => `<option value="${y}" ${y === M.ano ? "selected" : ""}>Ano ${y}</option>`).join("");
+    $("#mtano").hidden = !ys.length;
+    $("#mtcantos").innerHTML = PARTES.map(([p, lab]) => { const cs = candidatos(x, p); if (M[p] === undefined && cs[0]) M[p] = cs[0].n;
+      const extra = M[p] && !cs.some(k => k.n === M[p]) ? [{n: M[p]}] : [];
+      return `<div class="mt-p"><div class="part">${lab}</div><div class="ops">${[...extra, ...cs].filter(k => R.cantos[k.n]).map(k => `<button class="op" type="button" data-op="${p}" data-no="${k.n}" aria-pressed="${k.n === M[p]}">${esc(curto(R.cantos[k.n].t, 52))}${k.aqui ? `<small>já cantado aqui</small>` : ""}</button>`).join("")}</div><input class="outro" list="mtlista" data-outro="${p}" placeholder="Outro canto…" aria-label="Outro canto para ${lab}" autocomplete="off"></div>`; }).join("");
+    $("#mtfixas").innerHTML = FIXAS.filter(p => Sg[p]).map(p => { const l = PF[p].filter(i => i.tempos.includes(tp)); if (!M["f_" + p]) M["f_" + p] = Sg[p].url;
+      return `<div class="mt-p"><div class="part">${esc(PFN[p])}</div><select data-fx="${p}" aria-label="${esc(PFN[p])}">${l.map(i => `<option value="${esc(i.url)}" ${i.url === M["f_" + p] ? "selected" : ""}>${esc(i.nome)}${i.autor ? " · " + esc(i.autor) : ""}</option>`).join("")}</select></div>`; }).join("");
+    grava(M); folheto();
+  }
+  function folheto(){
+    const x = CELS.find(i => i.c.nome === nome), M = ler(), d = x.c.anos[M.ano], lin = [];
+    const txt = [`*${nome}*${M.ano ? " — Ano " + M.ano : ""}`, ""];
+    const canto = (p, lab) => { const s = R.cantos[M[p]]; if (!s) return; lin.push(`<div class="lin"><span class="part">${lab}</span><a class="lt" href="#canto/${M[p]}">${esc(curto(s.t, 60))}</a></div>`);
+      txt.push(`🔸 *${lab}:* ${curto(s.t, 70)}${s.f ? " (" + s.f + ")" : ""}`); if (s.url) txt.push(s.url); };
+    const fixa = p => { const i = (PF[p] || []).find(k => k.url === M["f_" + p]); if (!i) return; lin.push(`<div class="lin"><span class="part">${esc(PFN[p])}</span>${esc(i.nome)}</div>`); txt.push(`🔸 *${PFN[p]}:* ${pfTxt(i)}`, i.url); };
+    canto("entrada", "Entrada"); fixa("ato_penitencial"); fixa("gloria");
+    if (d && d.salmo) { lin.push(`<div class="lin"><span class="part">Salmo</span><i>${esc(d.salmo)}</i></div>`); txt.push(`🔸 *Salmo:* ${d.salmo}`); }
+    fixa("aleluia"); canto("ofertorio", "Oferendas"); fixa("santo"); fixa("amem"); fixa("cordeiro");
+    canto("comunhao", "Comunhão"); canto("pos_comunhao", "Pós-comunhão"); canto("final", "Final");
+    txt.push("", `Repertório e letras: ${DATA.site}`);
+    $("#mtfolha").innerHTML = `<h3>${esc(nome)}</h3><p class="meta">${M.ano ? `Ano ${M.ano} · ` : ""}Coro Sant'Ana e São Joaquim</p>${lin.join("")}<div class="mt-acoes">${copyBtn(txt.join("\n"))}<button class="btn" type="button" data-imprime>Imprimir</button></div>`;
+  }
+  $("#mtcel").innerHTML = R.tempos.map(t => `<optgroup label="${esc(t.nome)}">${t.celebracoes.map(c => `<option ${c.nome === nome ? "selected" : ""}>${esc(c.nome)}</option>`).join("")}</optgroup>`).join("");
+  $("#mtlista").innerHTML = Object.entries(R.cantos).map(([no, s]) => `<option value="${no} · ${esc(curto(s.t, 60))}">`).join("");
+  $("#montar").addEventListener("click", e => {
+    if (e.target.closest("[data-imprime]")) { print(); return; }
+    const b = e.target.closest("[data-op]"); if (!b) return;
+    const M = ler(); M[b.dataset.op] = +b.dataset.no; grava(M);
+    document.querySelectorAll(`[data-op="${b.dataset.op}"]`).forEach(o => o.setAttribute("aria-pressed", o === b)); folheto();
+  });
+  $("#montar").addEventListener("change", e => {
+    const t = e.target, M = ler();
+    if (t.id === "mtcel") { nome = t.value; desenha(); return; }
+    if (t.id === "mtano") { M.ano = t.value; grava(M); folheto(); return; }
+    if (t.dataset.fx) { M["f_" + t.dataset.fx] = t.value; grava(M); folheto(); return; }
+    if (t.dataset.outro) { const no = parseInt(t.value, 10); if (R.cantos[no]) { M[t.dataset.outro] = no; grava(M); desenha(); } else t.value = ""; }
+  });
+  $("#mtlimpa").onclick = () => { store.set("montar-" + nome, {}); desenha(); };
+  desenha();
+})();
+
 // ---------- busca geral (início) ----------
 (function(){
   const box = $("#binp"), res = $("#bres"), ini = $("#inicio");
@@ -662,6 +766,7 @@ $("#contato").innerHTML = DATA.contato.map(linkCard).join("");
   for (const [p, l] of Object.entries(PF)) for (const x of l) D.push(doc("pf", [x.nome, x.autor, PFN[p], SINON[p]].join(" "), "", {p, it: x}));
   const links = (l, de) => l.forEach(m => D.push(doc("site", m.titulo, m.desc + " " + de, {tit: m.titulo, desc: m.desc, url: m.url})));
   links(DATA.materiais, "formacao material baixar pdf"); links(DATA.links_form, "formacao"); links(DATA.contato, "contato");
+  D.push(doc("site", "Montar repertório", "personalizar escolher cantos folheto", {tit: "Montar repertório", desc: "Escolha os cantos e mande pronto para o grupo", url: "#montar"}));
   D.push(doc("site", "Reportar erro", "contato revisar corrigir", {tit: "Reportar erro", desc: "Avise sobre um canto, letra, link ou slide errado", rep: 1}));
   let hd = null, corpo = [];
   const fecha = () => { if (hd) D.push(doc("site", hd.textContent, corpo.join(" "), {tit: hd.textContent, txt: corpo.join(" "), alvo: hd.id, desc: "Formação"})); corpo = []; };
@@ -719,7 +824,7 @@ $("#contato").innerHTML = DATA.contato.map(linkCard).join("");
     pf: d => `<div class="res"><div class="part">${esc(PFN[d.p])}</div>${pfRow(d.p, d.it)}</div>`,
     site: (d, q) => { const c = `<b>${esc(d.tit)}</b><span class="meta">${trecho(d, q)}</span>`;
       return d.rep ? `<button class="res site" type="button" data-report>${c}</button>` : d.alvo ? `<button class="res site" type="button" data-alvo="${d.alvo}">${c}</button>`
-        : `<a class="res site" href="${esc(d.url)}" ${d.url.startsWith("http") ? 'target="_blank" rel="noopener"' : "download"}>${c}</a>`; }
+        : `<a class="res site" href="${esc(d.url)}" ${d.url.startsWith("http") ? 'target="_blank" rel="noopener"' : d.url.startsWith("#") ? "" : "download"}>${c}</a>`; }
   };
   const SEC = [["cel", "Celebrações e repertórios", 6], ["canto", "Cantos", 8], ["pf", "Partes fixas", 6], ["slide", "Slides para baixar", 6], ["site", "Formação e materiais", 6]];
   let todos = {};
