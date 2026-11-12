@@ -120,6 +120,9 @@ h3{font-weight:600;color:var(--ink);font-size:16.5px;margin:0;letter-spacing:-.0
 .op[aria-pressed=true] small{color:#ffe6d8}
 .opw{display:inline-flex;align-items:stretch;gap:3px;max-width:100%}
 .opplay{display:flex;align-items:center;justify-content:center;min-width:32px;border:1px solid var(--rule);background:var(--card);color:var(--acc-d);border-radius:10px;font-size:12px;text-decoration:none}
+.fxw{display:flex;gap:4px;align-items:stretch}
+.fxw select{flex:1;min-width:0}
+.opplay[hidden]{display:none}
 .opplay:hover{border-color:var(--acc);background:var(--tint)}
 .outro{width:100%;margin-top:6px;border:0;border-bottom:1px dashed var(--rule);background:none;color:var(--ink);font:inherit;font-size:13.5px;padding:4px 0;outline:0}
 .outro:focus{border-bottom-color:var(--acc)}
@@ -724,6 +727,7 @@ $("#contato").innerHTML = DATA.contato.map(linkCard).join("");
     const outros = Object.keys(conta).map(Number).filter(n => !daqui.has(n)).sort((a, b) => conta[b] - conta[a]).slice(0, 7);
     return [...[...daqui].map(n => ({n, aqui: true})), ...outros.map(n => ({n}))];
   }
+  const tocar = (p, u) => `<a class="opplay" data-fxplay="${p}" href="${esc(u || "#")}" target="_blank" rel="noopener" title="Ouvir" aria-label="Ouvir ${esc(PFN[p])}" ${u ? "" : "hidden"}>▶</a>`;
   function desenha(){
     const x = CELS.find(i => i.c.nome === nome), M = ler(), Sg = sugestoes(nome), {tp} = tempoDe(nome), ys = anosDe(x.c);
     if (M.ano === undefined) M.ano = nx && nx.k === nome && x.c.anos[nx.y] ? nx.y : ys[ys.length - 1] || "";
@@ -733,7 +737,7 @@ $("#contato").innerHTML = DATA.contato.map(linkCard).join("");
       const extra = M[p] && !cs.some(k => k.n === M[p]) ? [{n: M[p]}] : [];
       return `<div class="mt-p"><div class="part">${lab}</div><div class="ops">${[...extra, ...cs].filter(k => R.cantos[k.n]).map(k => { const s = R.cantos[k.n]; return `<span class="opw"><button class="op" type="button" data-op="${p}" data-no="${k.n}" aria-pressed="${k.n === M[p]}">${esc(curto(s.t, 52))}${k.aqui ? `<small>já cantado aqui</small>` : ""}</button>${s.url ? `<a class="opplay" href="${esc(s.url)}" target="_blank" rel="noopener" aria-label="Ouvir ${esc(curto(s.t, 40))}" title="Ouvir">▶</a>` : ""}</span>`; }).join("")}</div><input class="outro" list="mtlista" data-outro="${p}" placeholder="Outro canto…" aria-label="Outro canto para ${lab}" autocomplete="off"></div>`; }).join("");
     $("#mtfixas").innerHTML = FIXAS.filter(p => Sg[p]).map(p => { const l = PF[p].filter(i => i.tempos.includes(tp)); if (M["f_" + p] === undefined) M["f_" + p] = Sg[p].url;
-      return `<div class="mt-p"><div class="part">${esc(PFN[p])}</div><select data-fx="${p}" aria-label="${esc(PFN[p])}"><option value="">Não usar</option>${l.map(i => `<option value="${esc(i.url)}" ${i.url === M["f_" + p] ? "selected" : ""}>${esc(i.nome)}${i.autor ? " · " + esc(i.autor) : ""}</option>`).join("")}</select></div>`; }).join("");
+      return `<div class="mt-p"><div class="part">${esc(PFN[p])}</div><div class="fxw"><select data-fx="${p}" aria-label="${esc(PFN[p])}"><option value="">Não usar</option>${l.map(i => `<option value="${esc(i.url)}" ${i.url === M["f_" + p] ? "selected" : ""}>${esc(i.nome)}${i.autor ? " · " + esc(i.autor) : ""}</option>`).join("")}</select>${tocar(p, M["f_" + p])}</div></div>`; }).join("");
     grava(M); folheto();
   }
   // ---- gerar slides: no aparelho de quem clica, no molde dos slides do coro (PowerPoint ou PDF) ----
@@ -848,7 +852,8 @@ $("#contato").innerHTML = DATA.contato.map(linkCard).join("");
     const t = e.target, M = ler();
     if (t.id === "mtcel") { nome = t.value; desenha(); return; }
     if (t.id === "mtano") { M.ano = t.value; grava(M); folheto(); return; }
-    if (t.dataset.fx) { M["f_" + t.dataset.fx] = t.value; grava(M); folheto(); return; }
+    if (t.dataset.fx) { M["f_" + t.dataset.fx] = t.value; grava(M); folheto();
+      const a = document.querySelector(`[data-fxplay="${t.dataset.fx}"]`); a.href = t.value || "#"; a.hidden = !t.value; return; }
     if (t.dataset.outro) { const no = parseInt(t.value, 10); if (R.cantos[no]) { M[t.dataset.outro] = no; grava(M); desenha(); } else t.value = ""; }
   });
   $("#mtlimpa").onclick = () => { store.set("montar-" + nome, {}); desenha(); };
