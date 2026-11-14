@@ -242,7 +242,6 @@ footer a{color:var(--acc)}
 .pf .it b{font-weight:500;display:block}
 .pf .it span.a{font-size:12.5px;color:var(--muted)}
 .pf .it .tag{font:600 10.5px Lexend,sans-serif;color:var(--acc-d);background:var(--tint);border-radius:999px;padding:1px 7px;margin-left:6px;white-space:nowrap}
-.ver{display:inline-block;font:600 10.5px Lexend,sans-serif;color:#1f8a4c;background:#e6f4ec;border-radius:999px;padding:1px 7px;margin-left:4px;white-space:nowrap}
 .ft{display:block;font:500 11.5px Inter,sans-serif;color:var(--acc-d)}
 .sug{margin-top:10px;padding-top:8px;border-top:1px dashed var(--rule)}
 footer{text-align:center;color:var(--muted);font-size:12.5px;padding:24px 16px 40px}
@@ -333,7 +332,7 @@ footer{text-align:center;color:var(--muted);font-size:12.5px;padding:24px 16px 4
     <div id="ppos"></div>
     <h2>Cantos por celebração</h2>
     <div class="notice" style="margin:0 0 14px"><p>Material reunido ao longo de anos: pode ter erros. Use <b>📋 Copiar repertório</b> para mandar a lista com links no grupo, e nos avise se algo estiver errado.</p><button class="btn" data-report type="button">Reportar erro</button></div>
-    <p class="meta">● link enviado no grupo · ○ referência encontrada no YouTube (a melodia pode ser outra). Toque no nome do canto para ver a letra. Slide “parcial”: tem só parte dos cantos daquele repertório. ✓ verificado: link conferido pelo coordenador do coro.</p>
+    <p class="meta">● link enviado no grupo · ○ referência encontrada no YouTube (a melodia pode ser outra). Toque no nome do canto para ver a letra. Slide “parcial”: tem só parte dos cantos daquele repertório.</p>
     <div id="rlist"></div>
     <p class="empty" id="rempty">Nada encontrado.</p>
   </section>
@@ -439,13 +438,12 @@ const ANOS = [["","Todos os anos"],["A","Ano A"],["B","Ano B"],["C","Ano C"]];
 // ---------- repertório ----------
 const R = DATA.repertorio, rs = Object.assign({q:"", ano:""}, store.get("rep-filtro")||{});
 const PORDER = ["entrada","ofertorio","comunhao","pos_comunhao","final"];
-const VER = `<span class="ver" title="Link conferido pelo coordenador do coro">✓ verificado</span>`;
 function songRow(no){
   const s = R.cantos[no]; if(!s) return "";
   const play = s.url ? `<a class="play ${s.src==="grupo"?"g":""}" href="${esc(s.url)}" target="_blank" rel="noopener">${s.src==="grupo"?"●":"○"} ouvir</a>` : "";
   const tt = s.t.length > 64 ? s.t.slice(0, 62).replace(/\s+\S*$/, "") + "…" : s.t;
   const ft = [s.f, s.a].filter(Boolean).join(" · ");
-  return `<div class="sg"><span title="${esc(s.t)}"><a class="lt" href="#canto/${no}">${esc(tt)}</a> <span class="no">nº ${no}</span>${s.v ? VER : ""}${ft ? `<small class="ft">${esc(ft)}</small>` : ""}</span>${play}</div>`;
+  return `<div class="sg"><span title="${esc(s.t)}"><a class="lt" href="#canto/${no}">${esc(tt)}</a> <span class="no">nº ${no}</span>${ft ? `<small class="ft">${esc(ft)}</small>` : ""}</span>${play}</div>`;
 }
 // ---- copiar repertório (texto para os grupos de WhatsApp) ----
 const COPIES = [];
@@ -598,11 +596,10 @@ renderSlides();
 })();
 
 // ---------- partes fixas (listas no site) ----------
-const VERURL = new Set(Object.values(R.cantos).filter(s => s.v).map(s => s.url));
 const NOURL = Object.fromEntries(Object.entries(R.cantos).filter(([, s]) => s.url).map(([no, s]) => [s.url, no]));
 const pfList = (ps, un) => ps.filter(p => (PF[p] || []).length).map(p =>
   `<details class="pf"><summary>${esc(PFN[p])} <small>${PF[p].length} ${un}</small></summary>` +
-  PF[p].map(x => `<div class="it"><div><b>${NOURL[x.url] ? `<a class="lt" href="#canto/${NOURL[x.url]}">${esc(x.nome)}</a>` : esc(x.nome)}${VERURL.has(x.url) ? VER : ""}</b>${x.autor ? `<span class="a">${esc(x.autor)}</span>` : ""}</div><a class="play g" href="${esc(x.url)}" target="_blank" rel="noopener">ouvir</a></div>`).join("") +
+  PF[p].map(x => `<div class="it"><div><b>${NOURL[x.url] ? `<a class="lt" href="#canto/${NOURL[x.url]}">${esc(x.nome)}</a>` : esc(x.nome)}</b>${x.autor ? `<span class="a">${esc(x.autor)}</span>` : ""}</div><a class="play g" href="${esc(x.url)}" target="_blank" rel="noopener">ouvir</a></div>`).join("") +
   `</details>`).join("");
 $("#pfix").innerHTML = pfList(["ato_penitencial", "gloria", "aleluia", "santo", "amem", "pai_nosso", "cordeiro"], "melodias");
 $("#ppos").innerHTML = pfList(["pos_comunhao"], "cantos");
@@ -635,7 +632,7 @@ async function showLetra(no){
   const box = $("#ltx"), s = R.cantos[no], topo = `<div class="lt-topo"><button class="volta" type="button" data-volta>← Voltar</button><div class="lfs" role="group" aria-label="Tamanho da letra"><button type="button" data-fs="-1" aria-label="Diminuir a letra">A−</button><button type="button" data-fs="1" aria-label="Aumentar a letra">A+</button></div></div>`;
   if (!s) { box.innerHTML = topo + `<p class="empty" style="display:block">Canto não encontrado.</p>`; return; }
   const ft = [s.f, s.a].filter(Boolean).join(" · ");
-  const head = `${topo}<h2>${esc(s.t)}</h2><span class="no">nº ${no}</span>${s.v ? VER : ""}${ft ? `<small class="ft">${esc(ft)}</small>` : ""}` +
+  const head = `${topo}<h2>${esc(s.t)}</h2><span class="no">nº ${no}</span>${ft ? `<small class="ft">${esc(ft)}</small>` : ""}` +
     (s.url ? `<div class="dl"><a class="btn primary" href="${esc(s.url)}" target="_blank" rel="noopener">Ouvir</a></div>` : "");
   const fim = usosDe(no) + `<button class="rep-link" type="button" data-report="${esc("Letra nº " + no + ": " + s.t)}">⚑ reportar erro nesta letra</button>`;
   box.innerHTML = head + `<p class="meta">Carregando a letra…</p>`;
@@ -962,7 +959,7 @@ $("#contato").innerHTML = DATA.contato.map(linkCard).join("");
   for (const k of Object.keys(AG)) if (!CELS.has(k)) D.push(doc("cel", k, AG[k].map(g => fmt(g.d) + " ano " + g.y).join(" "), {sem: k}));
   for (const [no, s] of Object.entries(R.cantos)) {
     const u = USOS[no] || {}, ns = Object.keys(u);
-    D.push(doc("canto", [s.t, s.f, s.a, s.f ? "antifona" : "", s.v ? "verificado" : ""].join(" "), [no, s.cat, (R.categorias.find(c => c[0] === s.cat) || [])[1], ...ns, ...ns.flatMap(n => [u[n].tempo, ...u[n].partes, ...[...u[n].anos].map(y => "ano " + y)])].join(" "), {no}));
+    D.push(doc("canto", [s.t, s.f, s.a, s.f ? "antifona" : ""].join(" "), [no, s.cat, (R.categorias.find(c => c[0] === s.cat) || [])[1], ...ns, ...ns.flatMap(n => [u[n].tempo, ...u[n].partes, ...[...u[n].anos].map(y => "ano " + y)])].join(" "), {no}));
   }
   for (const s of S) D.push(doc("slide", s.celebracao + " " + s.detalhe, [s.tempo, s.ano ? "ano " + s.ano : "", fmt(s.data), ...s.cantos].join(" "), {s}));
   for (const [p, l] of Object.entries(PF)) for (const x of l) D.push(doc("pf", [x.nome, x.autor, PFN[p], SINON[p]].join(" "), "", {p, it: x}));
